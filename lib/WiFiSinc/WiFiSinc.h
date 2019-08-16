@@ -22,7 +22,6 @@
 
 #include <ESP8266WiFi.h>
 
-
 class WiFiSinc{
 	public:
 		WiFiSinc();
