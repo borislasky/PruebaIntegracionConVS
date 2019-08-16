@@ -14,5 +14,5 @@ void setup() {
 void loop() {
   if(miwifi.estado() != WL_CONNECTED)
     miwifi.ConectaWiFi();
-  delay(1000);
+  delay(1000); 
 }
