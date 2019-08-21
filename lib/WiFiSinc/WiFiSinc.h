@@ -17,11 +17,10 @@
  *
 */
 
-#ifndef WIFI_SINC_h
-#define WIFI_SINC_h
-
 #include <ESP8266WiFi.h>
 
+#ifndef WIFI_SINC_h
+#define WIFI_SINC_h
 class WiFiSinc{
 	public:
 		WiFiSinc();
@@ -39,8 +38,21 @@ class WiFiSinc{
 		int reintentos; // Número de reintentos antes de pasar a otra conexión
 										// o ejecutar la acción de reboot o deep sleep
 		unsigned long accion;	// Si 0, reboot. Si >0 deep sleep durante accion microsegundos
-		
-
 };
+#endif
 
+#ifndef WIFI_ASINC_h
+#define WIFI_ASINC_h
+class WiFiAsinc{
+	public:
+		WiFiAsinc();
+		WiFiAsinc(bool);
+
+		int estado();
+		void IpEstatica(char*, char*, char*);
+		void PreparaConexionWiFi();
+
+	private:
+		int verbose; 		// Si true saca por Serial información sobre la conexión
+};
 #endif

@@ -1,3 +1,4 @@
+//#include <Ticker.h>
 #include "WiFiSinc.h"
 #include "auth_wifi.h"
 
@@ -84,6 +85,51 @@ int iniWiFi(const char *ssid, const char *pass, bool verbose, int reintentos) {
 }
 
 
+int Conectar_a_WiFi(bool verbose, int reintentos){
+	int nSSIDsUtiles = 0;
+	String cSenal;
+	int calidad[NUM_SSIDs] = {-255, -255, -255};
+	
+	// Primero hace un escaneo de los SSIDs que encuentra
+	int num_ssids = WiFi.scanNetworks(); // Número de SSIDs	encontrados
+	if(verbose)
+		Serial.printf("Número de SSID encontrados: %d\n", num_ssids);
+	
+  	for(int i=0; i<num_ssids; i++){
+    int intensidad = WiFi.RSSI(i);
+		int orden = busca(WiFi.SSID(i));
+		if(orden >= 0){
+			calidad[orden] = intensidad;
+			nSSIDsUtiles++;
+		}
+    if(intensidad >= -60) 		cSenal = "Perfecta";
+    else if(intensidad >= -67) 	cSenal = "Muy buena";
+    else if(intensidad >= -70) 	cSenal = "Buena";
+    else if(intensidad >= -80) 	cSenal = "Mala";
+    else if(intensidad < -80)  	cSenal = "No usable";
+		if(verbose){
+			Serial.print("- ");
+			Serial.println(WiFi.SSID(i));
+			Serial.print("\tIntensidad de señal: ");
+			Serial.print(intensidad);
+			Serial.print("dBm - ");
+			Serial.println(cSenal);
+		}
+  }
+	
+	// Ordena las tablas de ssids y passwords por orden decreciente
+	// de calidad de señal
+	OrdenaSSIDs_y_Passs(calidad, NUM_SSIDs);
+
+	// Intenta conexión con los SSIDs útiles
+	for(int i=0; i<nSSIDsUtiles; i++)
+		if(iniWiFi(ssids[i], passs[i], verbose, reintentos))
+			return(1);
+	return(0);
+}
+
+
+
 void separa(byte *res, char *s){
 	int i = 0;
 	char* ss = strtok(s, ".");
@@ -92,6 +138,16 @@ void separa(byte *res, char *s){
 		ss = strtok(0, ".");
 	}
 }
+
+
+void SeteaIP(char *IP, char* Mascara, char *gateway){
+	byte IPn[4], Mascn[4], gatewn[4], dns[4] = {8,8,8,8};
+	separa(IPn, IP);
+	separa(Mascn, Mascara);
+	separa(gatewn, gateway);
+	WiFi.config(IPn, dns, gatewn, Mascn);
+}
+
 
 WiFiSinc::WiFiSinc(){
 	this->verbose = true;
@@ -124,65 +180,38 @@ int WiFiSinc::estado(){
 }
 	
 int WiFiSinc::ConectaWiFi(){
-	int nSSIDsUtiles = 0;
-  String cSenal;
-  int calidad[NUM_SSIDs] = {-255, -255, -255};
-	
-	// Primero hace un escaneo de los SSIDs que encuentra
-	int num_ssids = WiFi.scanNetworks(); // Número de SSIDs	encontrados
-	if(this->verbose)
-		Serial.printf("Número de SSID encontrados: %d\n", num_ssids);
-	
-  for(int i=0; i<num_ssids; i++){
-    int intensidad = WiFi.RSSI(i);
-		int orden = busca(WiFi.SSID(i));
-		if(orden >= 0){
-			calidad[orden] = intensidad;
-			nSSIDsUtiles++;
-		}
-    if(intensidad >= -60) cSenal = "Perfecta";
-    else if(intensidad >= -67) cSenal = "Muy buena";
-    else if(intensidad >= -70) cSenal = "Buena";
-    else if(intensidad >= -80) cSenal = "Mala";
-    else if(intensidad < -80)  cSenal = "No usable";
-		if(this->verbose){
-			Serial.print("- ");
-			Serial.println(WiFi.SSID(i));
-			Serial.print("\tIntensidad de señal: ");
-			Serial.print(intensidad);
-			Serial.print("dBm - ");
-			Serial.println(cSenal);
-		}
-  }
-	
-	// Ordena las tablas de ssids y passwords por orden decreciente
-	// de calidad de señal
-	OrdenaSSIDs_y_Passs(calidad, NUM_SSIDs);
-
-	// Intenta conexión con los SSIDs útiles
-	for(int i=0; i<nSSIDsUtiles; i++)
-		if(iniWiFi(ssids[i], passs[i], this->verbose, this->reintentos))
-			return(1);
-	return(0);
+	return Conectar_a_WiFi(this->verbose, this->reintentos);
 }
 
 void WiFiSinc::IpEstatica(char *IP, char* Mascara, char *gateway){
-	byte IPn[4], Mascn[4], gatewn[4], dns[4] = {8,8,8,8};
-	separa(IPn, IP);
-	separa(Mascn, Mascara);
-	separa(gatewn, gateway);
-	WiFi.config(IPn, dns, gatewn, Mascn);
-	/*
-	for(int i=0;i<4;i++){
-		Serial.print(IPn[i]);
-		Serial.print(" - ");
-		Serial.print(Mascn[i]);
-		Serial.print(" - ");
-		Serial.println(gatewn[i]);
-	}
-	*/
+	SeteaIP(IP, Mascara, gateway);
 }
 
 IPAddress WiFiSinc::IP(){
 	return(WiFi.localIP());
+}
+
+
+WiFiAsinc::WiFiAsinc(){
+	this->verbose = true;
+}
+
+WiFiAsinc::WiFiAsinc(bool _verbose){
+	this->verbose = _verbose;
+}
+
+void WiFiAsinc::IpEstatica(char *IP, char* Mascara, char *gateway){
+	SeteaIP(IP, Mascara, gateway);
+}
+
+int WiFiAsinc::estado(){
+	return WiFi.status();
+}
+
+void WiFiAsinc::PreparaConexionWiFi(){
+	//if(this->verbose)
+		WiFiEventHandler disconnectedEventHandler = WiFi.onStationModeDisconnected([](const WiFiEventStationModeDisconnected& event) {
+	    	Serial.println("WiFi desconectada");
+		});
+	Conectar_a_WiFi(this->verbose, 20);
 }
